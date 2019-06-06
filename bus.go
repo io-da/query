@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+// Bus is the only struct exported and required for the query bus usage.
+// The Bus should be instantiated using the NewBus function.
 type Bus struct {
 	workerPoolSize int
 	queueBuffer    int
@@ -75,7 +77,7 @@ func (bus *Bus) Initialize(hdls ...Handler) {
 	}
 }
 
-// Query using a channel to iterate the results while they are being populated.
+// QueryIterator uses a channel to iterate the results while they are being populated.
 func (bus *Bus) QueryIterator(qry Query) <-chan Result {
 	if qry == nil {
 		return bus.errorResult("invalid query")
@@ -168,7 +170,7 @@ func (bus *Bus) query(qry Query, resChan chan<- Result) {
 			return
 		}
 	}
-	resChan <- errors.New(fmt.Sprintf("no handlers were found for the query %T", qry))
+	resChan <- fmt.Errorf("no handlers were found for the query %T", qry)
 }
 
 func (bus *Bus) workerUp() {
