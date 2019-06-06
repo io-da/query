@@ -1,6 +1,11 @@
 # [Go](https://golang.org/) Query Bus
 A query bus developed with a focus on utility.  
 
+[![Build Status](https://travis-ci.org/io-da/query.svg?branch=master)](https://travis-ci.org/io-da/query)
+[![Maintainability](https://api.codeclimate.com/v1/badges/7e612d86b1e8bbe89858/maintainability)](https://codeclimate.com/github/io-da/query/maintainability)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/7e612d86b1e8bbe89858/test_coverage)](https://codeclimate.com/github/io-da/query/test_coverage)
+[![GoDoc](https://godoc.org/github.com/io-da/query?status.svg)](https://godoc.org/github.com/io-da/query)
+
 ## Installation
 ``` go get github.com/io-da/query ```
 
