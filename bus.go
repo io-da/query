@@ -93,12 +93,7 @@ func (bus *Bus) QueryIterator(qry Query) <-chan Result {
 		return bus.errorResult("the query bus is shutting down")
 	}
 
-	resChan := make(chan Result, bus.resultBuffer)
-	bus.queryQueue <- &pendingQuery{
-		qry:     qry,
-		resChan: resChan,
-	}
-	return resChan
+	return bus.enqueueQuery(qry)
 }
 
 // Query for a single result or a pre-populated collection.
@@ -117,16 +112,7 @@ func (bus *Bus) Query(qry Query) (Result, error) {
 		return nil, errors.New("the query bus is shutting down")
 	}
 
-	resChan := make(chan Result)
-	bus.queryQueue <- &pendingQuery{
-		qry:     qry,
-		resChan: resChan,
-	}
-	res := <-resChan
-	if err, isErr := res.(error); isErr {
-		return nil, err
-	}
-	return res, nil
+	return bus.singleResult(qry)
 }
 
 // Shutdown the query bus gracefully.
@@ -206,4 +192,22 @@ func (bus *Bus) errorResult(error string) <-chan Result {
 	errChan <- errors.New(error)
 	close(errChan)
 	return errChan
+}
+
+func (bus *Bus) enqueueQuery(qry Query) <-chan Result {
+	resChan := make(chan Result, bus.resultBuffer)
+	bus.queryQueue <- &pendingQuery{
+		qry:     qry,
+		resChan: resChan,
+	}
+	return resChan
+}
+
+func (bus *Bus) singleResult(qry Query) (Result, error) {
+	resChan := bus.enqueueQuery(qry)
+	res := <-resChan
+	if err, isErr := res.(error); isErr {
+		return nil, err
+	}
+	return res, nil
 }
