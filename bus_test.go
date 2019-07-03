@@ -47,56 +47,71 @@ func TestBus_ResultBuffer(t *testing.T) {
 func TestBus_Query(t *testing.T) {
 	bus := NewBus()
 	hdl := &testHandler{}
+	hdlWErr := &testHandlerWithErrors{}
 
 	_, err := bus.Query(nil)
 	if err == nil {
 		t.Error("Querying an uninitialized bus should trigger an error.")
 	}
-	for val := range bus.QueryIterator(nil) {
-		if _, isErr := val.(error); !isErr {
-			t.Error("Querying an uninitialized bus should trigger an error.")
-		}
+
+	_, err = bus.QueryIterator(nil)
+	if err == nil {
+		t.Error("Querying an uninitialized bus should trigger an error.")
 	}
 
 	_, err = bus.Query(testQueryString("test"))
 	if err == nil {
 		t.Error("Querying an uninitialized bus should trigger an error.")
 	}
-	for val := range bus.QueryIterator(&testQueryStruct{}) {
-		if _, isErr := val.(error); !isErr {
-			t.Error("Querying an uninitialized bus should trigger an error.")
-		}
+
+	_, err = bus.QueryIterator(&testQueryStruct{})
+	if err == nil {
+		t.Error("Querying an uninitialized bus should trigger an error.")
 	}
 
-	bus.Initialize(hdl)
-	for val := range bus.QueryIterator(&testQueryStruct{}) {
-		if val, isErr := val.(error); isErr {
-			t.Error(val.Error())
-		}
+	errHdl := &storeErrorsHandler{
+		errs: make(map[string]error),
+	}
+	bus.ErrorHandlers(errHdl)
+	bus.Initialize(hdl, hdlWErr)
+	res, err := bus.QueryIterator(&testQueryStruct{})
+	if err != nil {
+		t.Error(err.Error())
+	}
+	for val := range res {
 		if val != "bar" {
 			t.Error("Query returned an unexpected value.")
 		}
 	}
-	for val := range bus.QueryIterator(testQueryString("test")) {
-		if val, isErr := val.(error); isErr {
-			t.Error(val.Error())
-		}
+
+	res, err = bus.QueryIterator(testQueryString("test"))
+	if err != nil {
+		t.Error(err.Error())
+	}
+	for val := range res {
 		if val != "bar" {
 			t.Error("Query returned an unexpected value.")
 		}
 	}
 
 	val, err := bus.Query(testQueryString("test"))
-	if val != "bar" {
-		t.Error("Query returned an unexpected value.")
-	}
 	if err != nil {
 		t.Error(err.Error())
 	}
+	if val != "bar" {
+		t.Error("Query returned an unexpected value.")
+	}
 
-	_, err = bus.Query(&testQueryUnsupported{})
-	if err == nil {
+	qry := &testQueryUnsupported{}
+	_, err = bus.Query(qry)
+	if err = errHdl.Error(qry); err == nil {
 		t.Error("Querying with an unsupported query should trigger an error.")
+	}
+
+	qryErr := &testQueryError{}
+	_, err = bus.Query(qryErr)
+	if err = errHdl.Error(qry); err == nil {
+		t.Error("Query was expected to throw an error.")
 	}
 }
 
@@ -121,7 +136,7 @@ func TestBus_Shutdown(t *testing.T) {
 
 	for i := 0; i < 1000; i++ {
 		_, _ = bus.Query(&testQueryStruct{})
-		_ = bus.QueryIterator(&testQueryStruct{})
+		_, _ = bus.QueryIterator(&testQueryStruct{})
 	}
 	wg.Wait()
 

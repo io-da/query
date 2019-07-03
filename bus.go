@@ -19,6 +19,7 @@ type Bus struct {
 	shuttingDown   *uint32
 	workers        *uint32
 	handlers       []Handler
+	errorHandlers  []ErrorHandler
 	queryQueue     chan *pendingQuery
 	closed         chan bool
 }
@@ -34,6 +35,7 @@ func NewBus() *Bus {
 		ongoingQueries: new(uint32),
 		shuttingDown:   new(uint32),
 		workers:        new(uint32),
+		errorHandlers:  make([]ErrorHandler, 0),
 		closed:         make(chan bool),
 	}
 }
@@ -54,6 +56,14 @@ func (bus *Bus) WorkerPoolSize(workerPoolSize int) {
 func (bus *Bus) QueueBuffer(buf int) {
 	if !bus.isInitialized() {
 		bus.queueBuffer = buf
+	}
+}
+
+// ErrorHandlers may optionally be provided.
+// They will receive any error thrown during the querying process.
+func (bus *Bus) ErrorHandlers(hdls ...ErrorHandler) {
+	if !bus.isInitialized() {
+		bus.errorHandlers = hdls
 	}
 }
 
@@ -78,22 +88,22 @@ func (bus *Bus) Initialize(hdls ...Handler) {
 }
 
 // QueryIterator uses a channel to iterate the results while they are being populated.
-func (bus *Bus) QueryIterator(qry Query) <-chan Result {
+func (bus *Bus) QueryIterator(qry Query) (<-chan Result, error) {
 	if qry == nil {
-		return bus.errorResult("invalid query")
+		return nil, errors.New("invalid query")
 	}
 
 	if !bus.isInitialized() {
-		return bus.errorResult("the query bus is not initialized")
+		return nil, errors.New("the query bus is not initialized")
 	}
 
 	bus.queryStarted()
 	if bus.isShuttingDown() {
 		bus.queryFinished()
-		return bus.errorResult("the query bus is shutting down")
+		return nil, errors.New("the query bus is shutting down")
 	}
 
-	return bus.enqueueQuery(qry, bus.resultBuffer)
+	return bus.enqueueQuery(qry, bus.resultBuffer), nil
 }
 
 // Query for a single result or a pre-populated collection.
@@ -112,7 +122,7 @@ func (bus *Bus) Query(qry Query) (Result, error) {
 		return nil, errors.New("the query bus is shutting down")
 	}
 
-	return bus.singleResult(qry)
+	return bus.singleResult(qry), nil
 }
 
 // Shutdown the query bus gracefully.
@@ -143,20 +153,25 @@ func (bus *Bus) worker(queryQueue <-chan *pendingQuery, closed chan<- bool) {
 			break
 		}
 
-		bus.query(penQry.qry, penQry.resChan)
-		close(penQry.resChan)
+		bus.query(penQry.qry, penQry.res)
+		close(penQry.res)
 		bus.queryFinished()
 	}
 	closed <- true
 }
 
-func (bus *Bus) query(qry Query, resChan chan<- Result) {
+func (bus *Bus) query(qry Query, res chan<- Result) {
 	for _, hdl := range bus.handlers {
-		if hdl.Handle(qry, resChan) {
+		handled, err := hdl.Handle(qry, res)
+		if err != nil {
+			bus.error(qry, err)
+			return
+		}
+		if handled {
 			return
 		}
 	}
-	resChan <- fmt.Errorf("no handlers were found for the query %T", qry)
+	bus.error(qry, fmt.Errorf("no handlers were found for the query %T", qry))
 }
 
 func (bus *Bus) workerUp() {
@@ -187,27 +202,22 @@ func (bus *Bus) shutdown() {
 	atomic.CompareAndSwapUint32(bus.initialized, 1, 0)
 }
 
-func (bus *Bus) errorResult(error string) <-chan Result {
-	errChan := make(chan Result, 1)
-	errChan <- errors.New(error)
-	close(errChan)
-	return errChan
-}
-
 func (bus *Bus) enqueueQuery(qry Query, resBuf int) <-chan Result {
-	resChan := make(chan Result, resBuf)
+	res := make(chan Result, resBuf)
 	bus.queryQueue <- &pendingQuery{
-		qry:     qry,
-		resChan: resChan,
+		qry: qry,
+		res: res,
 	}
-	return resChan
+	return res
 }
 
-func (bus *Bus) singleResult(qry Query) (Result, error) {
-	resChan := bus.enqueueQuery(qry, 1)
-	res := <-resChan
-	if err, isErr := res.(error); isErr {
-		return nil, err
+func (bus *Bus) singleResult(qry Query) Result {
+	res := bus.enqueueQuery(qry, 1)
+	return <-res
+}
+
+func (bus *Bus) error(qry Query, err error) {
+	for _, errHdl := range bus.errorHandlers {
+		errHdl.Handle(qry, err)
 	}
-	return res, nil
 }

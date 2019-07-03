@@ -1,6 +1,6 @@
 package query
 
 type pendingQuery struct {
-	qry     Query
-	resChan chan<- Result
+	qry Query
+	res chan<- Result
 }
