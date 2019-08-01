@@ -1,6 +1,6 @@
 package query
 
-type pendingQuery struct {
+type pendingIteratorQuery struct {
 	qry Query
-	res chan<- Result
+	res *IteratorResult
 }

@@ -1,6 +1,6 @@
 package query
 
-// Query is an empty interface used for reference and readability purposes.
+// Query is the interface that must be implemented by all queries
 type Query interface {
-	Id() []byte
+	ID() []byte
 }
