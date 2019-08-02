@@ -1,5 +1,5 @@
 # [Go](https://golang.org/) Query Bus
-A query bus intended to completely decouple querying logic from business logic.  
+A query bus to fetch all the things.  
 
 [![Build Status](https://travis-ci.org/io-da/query.svg?branch=master)](https://travis-ci.org/io-da/query)
 [![Maintainability](https://api.codeclimate.com/v1/badges/7e612d86b1e8bbe89858/maintainability)](https://codeclimate.com/github/io-da/query/maintainability)
@@ -10,17 +10,17 @@ A query bus intended to completely decouple querying logic from business logic.
 ``` go get github.com/io-da/query ```
 
 ## Overview
-1. [Queries](#Queries)
-2. [Handlers](#Handlers)
-2. [Result](#Result)
-2. [Iterator Handlers](#Iterator-Handlers)
-2. [Iterator Result](#Iterator-Result)
-2. [Error Handlers](#Error-Handlers)
-3. [The Bus](#The-Bus)  
-   1. [Tweaking Performance](#Tweaking-Performance)  
-   2. [Shutting Down](#Shutting-Down)  
-4. [Benchmarks](#Benchmarks)
-5. [Examples](#Examples)
+0. [Queries](#Queries)
+0. [Handlers](#Handlers)
+0. [Result](#Result)
+0. [Iterator Handlers](#Iterator-Handlers)
+0. [Iterator Result](#Iterator-Result)
+0. [Error Handlers](#Error-Handlers)
+0. [The Bus](#The-Bus)  
+   0. [Tweaking Performance](#Tweaking-Performance)  
+   0. [Shutting Down](#Shutting-Down)  
+0. [Benchmarks](#Benchmarks)
+0. [Examples](#Examples)
 
 ## Introduction
 This library is intended for anyone looking to query for data in a decoupled architecture. **No reflection, no closures.**
