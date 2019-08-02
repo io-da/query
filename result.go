@@ -39,7 +39,6 @@ func (res *Result) CachedAt() time.Time {
 	return res.cachedAt
 }
 
-
 //------Provide Data------//
 
 // Set all the data of this result
