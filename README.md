@@ -10,17 +10,17 @@ A query bus to fetch all the things.
 ``` go get github.com/io-da/query ```
 
 ## Overview
-0. [Queries](#Queries)
-0. [Handlers](#Handlers)
-0. [Result](#Result)
-0. [Iterator Handlers](#Iterator-Handlers)
-0. [Iterator Result](#Iterator-Result)
-0. [Error Handlers](#Error-Handlers)
-0. [The Bus](#The-Bus)  
-   0. [Tweaking Performance](#Tweaking-Performance)  
-   0. [Shutting Down](#Shutting-Down)  
-0. [Benchmarks](#Benchmarks)
-0. [Examples](#Examples)
+1. [Queries](#Queries)
+2. [Handlers](#Handlers)
+3. [Result](#Result)
+4. [Iterator Handlers](#Iterator-Handlers)
+5. [Iterator Result](#Iterator-Result)
+6. [Error Handlers](#Error-Handlers)
+7. [The Bus](#The-Bus)  
+   1. [Tweaking Performance](#Tweaking-Performance)  
+   2. [Shutting Down](#Shutting-Down)  
+8. [Benchmarks](#Benchmarks)
+9. [Examples](#Examples)
 
 ## Introduction
 This library is intended for anyone looking to query for data in a decoupled architecture. **No reflection, no closures.**
