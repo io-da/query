@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-//------Querys------//
+//------Queries------//
 
 type testQueryStruct struct {
 }
@@ -56,6 +56,21 @@ func (*testCacheQuery) CacheKey() []byte {
 
 func (*testCacheQuery) CacheDuration() time.Duration {
 	return time.Second
+}
+
+type testCacheQuery2 struct {
+}
+
+func (*testCacheQuery2) ID() []byte {
+	return []byte("UUID-CACHE-2")
+}
+
+func (*testCacheQuery2) CacheKey() []byte {
+	return []byte("CACHE-KEY-2")
+}
+
+func (*testCacheQuery2) CacheDuration() time.Duration {
+	return 0
 }
 
 type testHandlerOrderQuery struct {
@@ -147,7 +162,7 @@ type testCacheHandler struct {
 
 func (hdl *testCacheHandler) Handle(qry Query, res *Result) error {
 	switch qry.(type) {
-	case *testCacheQuery:
+	case *testCacheQuery, *testCacheQuery2:
 		// simulate that it took a second to fetch this resource
 		// the cache should take over repeated requests for this query, removing the delay
 		time.Sleep(time.Second)
@@ -186,8 +201,9 @@ func (hdl *storeErrorsHandler) Handle(qry Query, err error) {
 
 func (hdl *storeErrorsHandler) Error(qry Query) error {
 	hdl.Lock()
-	defer hdl.Unlock()
-	if err, hasError := hdl.errs[hdl.key(qry)]; hasError {
+	err, hasError := hdl.errs[hdl.key(qry)]
+	hdl.Unlock()
+	if hasError {
 		return err
 	}
 	return nil

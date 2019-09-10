@@ -74,26 +74,81 @@ func TestBus_Query(t *testing.T) {
 		t.Error("Query returned an unexpected value.")
 	}
 
-	res, err = bus.Query(&testCacheQuery{})
+	chQry := &testCacheQuery{}
+	res, err = bus.Query(chQry)
 	if err != nil {
 		t.Error(err.Error())
+	}
+	// confirm its a fresh result
+	if !res.IsFresh() {
+		t.Error("Result was expected to be fresh.")
 	}
 	if res.First() != "bar" {
 		t.Error("Query returned an unexpected value.")
 	}
-	// this should return the cached result and thus avoid the one second process time
-	res, err = bus.Query(&testCacheQuery{})
+	chAdt := NewMemoryCacheAdapter()
+	bus.CacheAdapters(chAdt)
+	// should return a fresh result again since we just replaced the cache adapter
+	res, err = bus.Query(chQry)
 	if err != nil {
 		t.Error(err.Error())
+	}
+	// confirm its a fresh result
+	if !res.IsFresh() {
+		t.Error("Result was expected to be fresh.")
+	}
+	if res.First() != "bar" {
+		t.Error("Query returned an unexpected value.")
+	}
+	// should return the cached result and thus avoid the one second processing time
+	res, err = bus.Query(chQry)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	// confirm its a cached result
+	if res.IsFresh() {
+		t.Error("Result was expected to be cached.")
+	}
+	if string(res.CacheKey()) != string(chQry.CacheKey()) {
+		t.Error("Result cache key was expected to equal the query cache key.")
 	}
 	if res.First() != "bar" {
 		t.Error("Query returned an unexpected value.")
 	}
 	time.Sleep(time.Second * 2)
-	// this should return the fresh result since the cache should have expired by now (thus an other second)
-	res, err = bus.Query(&testCacheQuery{})
+	// should return a fresh result since we are waiting more then 1 second (this query is configured to have 1 second cache)
+	res, err = bus.Query(chQry)
 	if err != nil {
 		t.Error(err.Error())
+	}
+	// confirm its a fresh result
+	if !res.IsFresh() {
+		t.Error("Result was expected to be fresh.")
+	}
+	if res.First() != "bar" {
+		t.Error("Query returned an unexpected value.")
+	}
+	chAdt.Expire(chQry)
+	// should return a fresh result since we are expiring the cache
+	res, err = bus.Query(chQry)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	// confirm its a fresh result
+	if !res.IsFresh() {
+		t.Error("Result was expected to be fresh.")
+	}
+	if res.First() != "bar" {
+		t.Error("Query returned an unexpected value.")
+	}
+
+	res, err = bus.Query(&testCacheQuery2{})
+	if err != nil {
+		t.Error(err.Error())
+	}
+	// confirm its a fresh result
+	if !res.CachedAt().IsZero() {
+		t.Error("Result was expected to not be cached.")
 	}
 	if res.First() != "bar" {
 		t.Error("Query returned an unexpected value.")
@@ -160,20 +215,21 @@ func TestBus_IteratorQuery(t *testing.T) {
 		t.Error("Query returned an unexpected value.")
 	}
 
-	res, err = bus.IteratorQuery(testQueryString("test"))
+	qryTimeout := testQueryString("test")
+	res, err = bus.IteratorQuery(qryTimeout)
 	if err != nil {
 		t.Error(err.Error())
 	}
 	// trigger the timeout reset
-	time.Sleep(time.Millisecond)
-	if val := <-res.Iterate(); val != "bar" {
-		t.Error("Query returned an unexpected value.")
+	time.Sleep(time.Second * 6)
+	if err = errHdl.Error(qryTimeout); err == nil {
+		t.Error("Iterator query should have triggered a timeout error due to not handling the result.")
 	}
 
-	qry := &testQueryUnsupported{}
-	res, err = bus.IteratorQuery(qry)
+	qryUnsup := &testQueryUnsupported{}
+	res, err = bus.IteratorQuery(qryUnsup)
 	<-res.Iterate()
-	if err = errHdl.Error(qry); err == nil {
+	if err = errHdl.Error(qryUnsup); err == nil {
 		t.Error("Iterator querying with an unsupported query should trigger an error.")
 	}
 	qryErr := &testQueryError{}

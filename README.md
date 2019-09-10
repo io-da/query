@@ -69,7 +69,7 @@ These behave nearly identical to normal handlers. However there are a couple of 
  - Expect an _IteratorResult_ instead of _Result_.
  - **Can not be cached**.
  
-Iterator handlers are intended to be used to with large sets of data. Providing a possibility to iterate over the data without additional preloading.  
+Iterator handlers are intended to be used with large sets of data. Providing a possibility to iterate over the data without additional preloading.  
 
 ### Iterator Result
 IteratorResult is the _struct_ returned from ```bus.IteratorQuery```. This struct acts as a proxy between the handlers and the consumer.  

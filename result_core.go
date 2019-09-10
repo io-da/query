@@ -7,12 +7,14 @@ import (
 type resultCore struct {
 	stopPropagation *uint32
 	handled         *uint32
+	cached          *uint32
 }
 
 func newResultCore() resultCore {
 	return resultCore{
 		stopPropagation: new(uint32),
 		handled:         new(uint32),
+		cached:          new(uint32),
 	}
 }
 
@@ -27,6 +29,11 @@ func (res *resultCore) Handled() {
 func (res *resultCore) Done() {
 	res.Handled()
 	atomic.CompareAndSwapUint32(res.stopPropagation, 0, 1)
+}
+
+// IsFresh can be used to verify if this result is fresh or cached.
+func (res *resultCore) IsFresh() bool {
+	return atomic.LoadUint32(res.cached) == 0
 }
 
 //------Internal------//
