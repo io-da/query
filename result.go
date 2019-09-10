@@ -2,16 +2,19 @@ package query
 
 import (
 	"math"
+	"sync"
 	"sync/atomic"
 	"time"
 )
 
 // Result is the struct returned from regular queries.
 type Result struct {
+	sync.Mutex
 	resultCore
-	data     []interface{}
-	cacheKey []byte
-	cachedAt time.Time
+	data      []interface{}
+	cacheKey  []byte
+	cachedAt  time.Time
+	expiresAt time.Time
 }
 
 func newResult() *Result {
@@ -29,14 +32,25 @@ func newCacheableResult(query Cacheable) *Result {
 	}
 }
 
-// CacheKey is used to identify this result while cached
+// CacheKey is used to identify which key was used to cache this result
 func (res *Result) CacheKey() []byte {
 	return res.cacheKey
 }
 
 // CachedAt is used to identify at which point this result was cached
 func (res *Result) CachedAt() time.Time {
-	return res.cachedAt
+	res.Lock()
+	cachedAt := res.cachedAt
+	res.Unlock()
+	return cachedAt
+}
+
+// ExpiresAt is used to identify at which point this result expires
+func (res *Result) ExpiresAt() time.Time {
+	res.Lock()
+	expiresAt := res.expiresAt
+	res.Unlock()
+	return expiresAt
 }
 
 //------Provide Data------//
@@ -80,8 +94,11 @@ func (res *Result) increaseCapacity() {
 	res.data = data
 }
 
-func (res *Result) cached() {
-	res.cachedAt = time.Now()
+func (res *Result) cache(qry Cacheable, at time.Time) {
+	res.Lock()
+	res.cachedAt = at
+	res.expiresAt = at.Add(qry.CacheDuration())
+	res.Unlock()
 }
 
 func (res *Result) isHandled() bool {

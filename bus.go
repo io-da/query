@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const iteratorListenerTimeout = time.Second
+
 // Bus is the only struct exported and required for the query bus usage.
 // The Bus should be instantiated using the NewBus function.
 type Bus struct {
@@ -20,8 +22,8 @@ type Bus struct {
 	handlers               []Handler
 	iteratorHandlers       []IteratorHandler
 	errorHandlers          []ErrorHandler
+	cacheAdapters          []CacheAdapter
 	iteratorQueryQueue     chan *pendingIteratorQuery
-	cachedResults          map[string]*Result
 	closed                 chan bool
 }
 
@@ -38,7 +40,7 @@ func NewBus() *Bus {
 		handlers:               make([]Handler, 0),
 		iteratorHandlers:       make([]IteratorHandler, 0),
 		errorHandlers:          make([]ErrorHandler, 0),
-		cachedResults:          make(map[string]*Result),
+		cacheAdapters:          []CacheAdapter{NewMemoryCacheAdapter()},
 		closed:                 make(chan bool),
 	}
 }
@@ -51,9 +53,16 @@ func (bus *Bus) Handlers(hdls ...Handler) {
 // ErrorHandlers may optionally be provided.
 // They will receive any error thrown during the querying process.
 func (bus *Bus) ErrorHandlers(hdls ...ErrorHandler) {
-	if !bus.isInitialized() {
-		bus.errorHandlers = hdls
+	bus.errorHandlers = hdls
+}
+
+// CacheAdapters may optionally be provided.
+// They will be used instead of the default MemoryCacheAdapter.
+func (bus *Bus) CacheAdapters(adps ...CacheAdapter) {
+	for _, adp := range bus.cacheAdapters {
+		adp.Shutdown()
 	}
+	bus.cacheAdapters = adps
 }
 
 // IteratorWorkerPoolSize may optionally be provided to tweak the iteratorWorker pool size for iterator query queue.
@@ -151,7 +160,7 @@ func (bus *Bus) iteratorWorker(qryQ <-chan *pendingIteratorQuery, closed chan<- 
 		}
 
 		// wait for a listener
-		if penQry.res.waitListener(time.Second) {
+		if penQry.res.waitListener(iteratorListenerTimeout) {
 			bus.iteratorQuery(penQry.qry, penQry.res)
 			penQry.res.close()
 			continue
@@ -208,30 +217,27 @@ func (bus *Bus) query(qry Query, res *Result) error {
 
 func (bus *Bus) result(qry Query) (*Result, bool) {
 	if qry, implements := qry.(Cacheable); implements {
-		if res := bus.getCache(qry); res != nil {
-			return res, true
+		for _, adp := range bus.cacheAdapters {
+			if res := adp.Get(qry); res != nil {
+				atomic.CompareAndSwapUint32(res.cached, 0, 1)
+				return res, true
+			}
 		}
 		return newCacheableResult(qry), false
 	}
 	return newResult(), false
 }
 
-func (bus *Bus) getCache(qry Cacheable) *Result {
-	ck := string(qry.CacheKey())
-	if res, isCached := bus.cachedResults[ck]; isCached {
-		if res.cachedAt.IsZero() || time.Now().Sub(res.CachedAt()) > qry.CacheDuration() {
-			delete(bus.cachedResults, ck)
-			return nil
-		}
-		return res
-	}
-	return nil
-}
-
 func (bus *Bus) handleCache(qry Query, res *Result) {
 	if qry, implements := qry.(Cacheable); implements && qry.CacheDuration() > 0 {
-		bus.cachedResults[string(res.CacheKey())] = res
-		res.cached()
+		at := time.Now()
+		cached := false
+		for _, adp := range bus.cacheAdapters {
+			cached = cached || adp.Set(qry, res, at)
+		}
+		if cached {
+			res.cache(qry, at)
+		}
 	}
 }
 
@@ -248,6 +254,9 @@ func (bus *Bus) shutdown() {
 		bus.iteratorQueryQueue <- nil
 		<-bus.closed
 		bus.iteratorWorkerDown()
+	}
+	for _, adp := range bus.cacheAdapters {
+		adp.Shutdown()
 	}
 	atomic.CompareAndSwapUint32(bus.initialized, 1, 0)
 }
