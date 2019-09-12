@@ -91,10 +91,7 @@ func (ad *MemoryCacheAdapter) cleaner() {
 }
 
 func (ad *MemoryCacheAdapter) clean() {
-	select {
-	case ad.cleanerSignal <- true:
-	default:
-	}
+	ad.cleanerSignal <- true
 }
 
 func (ad *MemoryCacheAdapter) updateSleepUntil(expiresAt time.Time) {

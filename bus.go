@@ -56,7 +56,7 @@ func (bus *Bus) ErrorHandlers(hdls ...ErrorHandler) {
 	bus.errorHandlers = hdls
 }
 
-// CacheAdapters apters may optionally be provided.
+// CacheAdapters may optionally be provided.
 // They will be used instead of the default MemoryCacheAdapter.
 func (bus *Bus) CacheAdapters(adps ...CacheAdapter) {
 	for _, adp := range bus.cacheAdapters {
