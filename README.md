@@ -16,6 +16,7 @@ A query bus to fetch all the things.
 4. [Iterator Handlers](#Iterator-Handlers)
 5. [Iterator Result](#Iterator-Result)
 6. [Error Handlers](#Error-Handlers)
+6. [Cache Adapters](#Cache-Adapters)
 7. [The Bus](#The-Bus)  
    1. [Tweaking Performance](#Tweaking-Performance)  
    2. [Shutting Down](#Shutting-Down)  
@@ -84,6 +85,21 @@ type ErrorHandler interface {
 }
 ```
 Any time an error occurs within the bus, it will be passed on to the error handlers. This strategy can be used for decoupled error handling.
+
+### Cache Adapters
+Cache adapters are any type that implements the _CacheAdapter_ interface. Cache adapters are optional (but advised) and provided to the bus using the ```bus.CacheAdapters``` function.  
+```go
+type CacheAdapter interface {
+    Set(qry Cacheable, res *Result, at time.Time) bool
+    Get(qry Cacheable) *Result
+    Expire(qry Cacheable)
+    Shutdown()
+}
+```
+Just as the query handlers, this approach allows the usage of different cache adapters for different query types.  
+If the cache adapter returns ```true``` on ```Set``` the bus will assume the result was successfully cached.  
+**On retrieval the bus will return the results from the first adapter that returns data for the given query. The order of the adapters is always respected.**  
+By default the bus comes with a _MemoryCacheAdapter_. This adapter will cache the results in memory and supports duration specification on the order of microseconds (accuracy depends on server load). Expired results will be automatically cleared from memory.    
 
 ### The Bus
 _Bus_ is the _struct_ that will be used for all the application's queries.  
