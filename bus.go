@@ -1,8 +1,6 @@
 package query
 
 import (
-	"errors"
-	"fmt"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -166,8 +164,7 @@ func (bus *Bus) iteratorWorker(qryQ <-chan *pendingIteratorQuery, closed chan<- 
 			continue
 		}
 
-		bus.error(penQry.qry, fmt.Errorf("the query %T timed out due to lack of result listeners. "+
-			"This may happen if a query was issued but the \"Iterate\" function of the result was not handled", penQry.qry))
+		bus.error(penQry.qry, NewErrorQueryTimedOut(penQry.qry))
 	}
 	closed <- true
 }
@@ -183,7 +180,7 @@ func (bus *Bus) iteratorQuery(qry Query, res *IteratorResult) {
 		}
 	}
 	if !res.isHandled() {
-		bus.error(qry, fmt.Errorf("no handlers were found for the query %T", qry))
+		bus.error(qry, NewErrorNoQueryHandlersFound(qry))
 	}
 }
 
@@ -206,7 +203,7 @@ func (bus *Bus) query(qry Query, res *Result) error {
 	}
 
 	if !res.isHandled() {
-		err := fmt.Errorf("no handlers were found for the query %T", qry)
+		err := NewErrorNoQueryHandlersFound(qry)
 		bus.error(qry, err)
 		return err
 	}
@@ -264,7 +261,7 @@ func (bus *Bus) shutdown() {
 func (bus *Bus) isValid(qry Query) error {
 	var err error
 	if qry == nil {
-		err = errors.New("invalid query")
+		err = InvalidQueryError
 		bus.error(qry, err)
 		return err
 	}
@@ -277,12 +274,12 @@ func (bus *Bus) isIteratorValid(qry Query) error {
 		return err
 	}
 	if !bus.isInitialized() {
-		err = errors.New("the query bus is not initialized")
+		err = QueryBusNotInitializedError
 		bus.error(qry, err)
 		return err
 	}
 	if bus.isShuttingDown() {
-		err = errors.New("the query bus is shutting down")
+		err = QueryBusIsShuttingDownError
 		bus.error(qry, err)
 		return err
 	}
