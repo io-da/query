@@ -16,10 +16,12 @@ A query bus to fetch all the things.
 4. [Iterator Handlers](#Iterator-Handlers)
 5. [Iterator Result](#Iterator-Result)
 6. [Error Handlers](#Error-Handlers)
+   1. [Available Errors](#Available-Errors)
 6. [Cache Adapters](#Cache-Adapters)
 7. [The Bus](#The-Bus)  
    1. [Tweaking Performance](#Tweaking-Performance)  
    2. [Shutting Down](#Shutting-Down)  
+   3. [Available Errors](#Available-Errors)
 8. [Benchmarks](#Benchmarks)
 9. [Examples](#Examples)
 
@@ -85,6 +87,35 @@ type ErrorHandler interface {
 }
 ```
 Any time an error occurs within the bus, it will be passed on to the error handlers. This strategy can be used for decoupled error handling.
+
+#### Available Errors
+Below is a list of errors that can occur.  
+
+```go
+// query.InvalidQueryError  
+// query.QueryBusNotInitializedError
+// query.QueryBusIsShuttingDownError
+// query.ErrorNoQueryHandlersFound
+// query.ErrorQueryTimedOut
+
+type errorHandler struct {}
+func (e errorHandler) Handle(qry Query, err error) {
+    switch(err.(type)) {
+        case query.InvalidQueryError:
+            // do something
+        case query.QueryBusNotInitializedError:
+            // do something
+        case query.QueryBusIsShuttingDownError:
+            // do something
+        case query.ErrorQueryTimedOut, query.ErrorNoQueryHandlersFound:
+            // do something
+        default:
+            // do something
+    }
+}
+bus.ErrorHandlers(errorHandler)
+
+```
 
 ### Cache Adapters
 Cache adapters are any type that implements the _CacheAdapter_ interface. Cache adapters are optional (but advised) and provided to the bus using the ```bus.CacheAdapters``` function.  
