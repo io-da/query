@@ -98,7 +98,6 @@ func (bus *Bus) InitializeIteratorHandlers(hdls ...IteratorHandler) {
 			bus.iteratorWorkerUp()
 			go bus.iteratorWorker(bus.iteratorQueryQueue, bus.closed)
 		}
-		atomic.CompareAndSwapUint32(bus.shuttingDown, 1, 0)
 	}
 }
 
@@ -256,6 +255,7 @@ func (bus *Bus) shutdown() {
 		adp.Shutdown()
 	}
 	atomic.CompareAndSwapUint32(bus.initialized, 1, 0)
+	atomic.CompareAndSwapUint32(bus.shuttingDown, 1, 0)
 }
 
 func (bus *Bus) isValid(qry Query) error {
@@ -274,12 +274,12 @@ func (bus *Bus) isIteratorValid(qry Query) error {
 		return err
 	}
 	if !bus.isInitialized() {
-		err = QueryBusNotInitializedError
+		err = BusNotInitializedError
 		bus.error(qry, err)
 		return err
 	}
 	if bus.isShuttingDown() {
-		err = QueryBusIsShuttingDownError
+		err = BusIsShuttingDownError
 		bus.error(qry, err)
 		return err
 	}

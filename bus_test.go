@@ -1,6 +1,7 @@
 package query
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -59,8 +60,10 @@ func TestBus_Query(t *testing.T) {
 	bus.Handlers(hdl, hdlWErr, hdlCache)
 
 	_, err := bus.Query(nil)
-	if err == nil {
-		t.Error("Query was expected to throw an error.")
+	if err == nil || err != InvalidQueryError {
+		t.Error("Expected InvalidQueryError error.")
+	} else if err.Error() != "query: invalid query" {
+		t.Error("Unexpected InvalidQueryError message.")
 	}
 
 	res, err := bus.Query(testQueryString("test"))
@@ -162,9 +165,17 @@ func TestBus_Query(t *testing.T) {
 		t.Error("Query returned an unexpected value.")
 	}
 
-	if _, err = bus.Query(&testQueryUnsupported{}); err == nil {
-		t.Error("Querying with an unsupported query should trigger an error.")
+	ok := false
+	if _, err = bus.Query(&testQueryUnsupported{}); err != nil {
+		if err, ok = err.(ErrorNoQueryHandlersFound);
+			ok && err.Error() != fmt.Sprintf("query: no handlers were found for the query %T", &testQueryUnsupported{}) {
+			t.Error("Unexpected ErrorNoQueryHandlersFound message.")
+		}
 	}
+	if !ok {
+		t.Error("Expected ErrorNoQueryHandlersFound error.")
+	}
+
 	if _, err = bus.Query(&testQueryError{}); err == nil {
 		t.Error("Query was expected to throw an error.")
 	}
@@ -176,12 +187,16 @@ func TestBus_IteratorQuery(t *testing.T) {
 	itrHdlWErr := &testIteratorHandlerWithErrors{}
 
 	_, err := bus.IteratorQuery(nil)
-	if err == nil {
-		t.Error("Iterator querying an uninitialized bus should trigger an error.")
+	if err == nil || err != InvalidQueryError {
+		t.Error("Expected InvalidQueryError error.")
+	} else if err.Error() != "query: invalid query" {
+		t.Error("Unexpected InvalidQueryError message.")
 	}
 	_, err = bus.IteratorQuery(&testQueryStruct{})
-	if err == nil {
-		t.Error("Iterator querying an uninitialized bus should trigger an error.")
+	if err == nil || err != BusNotInitializedError {
+		t.Error("Expected BusNotInitializedError error.")
+	} else if err.Error() != "query: the bus is not initialized" {
+		t.Error("Unexpected BusNotInitializedError message.")
 	}
 
 	errHdl := &storeErrorsHandler{
@@ -222,16 +237,32 @@ func TestBus_IteratorQuery(t *testing.T) {
 	}
 	// trigger the timeout reset
 	time.Sleep(time.Second * 6)
-	if err = errHdl.Error(qryTimeout); err == nil {
-		t.Error("Iterator query should have triggered a timeout error due to not handling the result.")
+	ok := false
+	if err = errHdl.Error(qryTimeout); err != nil {
+		if err, ok = err.(ErrorQueryTimedOut);
+			ok && err.Error() != fmt.Sprintf("query: the query %T timed out due to lack of result listeners. This may happen if a query was issued but the \"Iterate\" function of the result was not handled", qryTimeout) {
+			t.Error("Unexpected ErrorQueryTimedOut message.")
+		}
+	}
+	if !ok {
+		t.Error("Expected ErrorQueryTimedOut error.")
 	}
 
 	qryUnsup := &testQueryUnsupported{}
 	res, err = bus.IteratorQuery(qryUnsup)
 	<-res.Iterate()
-	if err = errHdl.Error(qryUnsup); err == nil {
-		t.Error("Iterator querying with an unsupported query should trigger an error.")
+	err = errHdl.Error(qryUnsup)
+	ok = false
+	if _, err = bus.Query(&testQueryUnsupported{}); err != nil {
+		if err, ok = err.(ErrorNoQueryHandlersFound);
+			ok && err.Error() != fmt.Sprintf("query: no handlers were found for the query %T", &testQueryUnsupported{}) {
+			t.Error("Unexpected ErrorNoQueryHandlersFound message.")
+		}
 	}
+	if !ok {
+		t.Error("Expected ErrorNoQueryHandlersFound error.")
+	}
+
 	qryErr := &testQueryError{}
 	res, err = bus.IteratorQuery(qryErr)
 	<-res.Iterate()
@@ -266,11 +297,17 @@ func TestBus_Shutdown(t *testing.T) {
 		_, _ = bus.Query(&testQueryStruct{})
 		_, _ = bus.IteratorQuery(&testQueryStruct{})
 	}
-	wg.Wait()
-
+	time.Sleep(time.Nanosecond * 300)
 	if !bus.isShuttingDown() {
 		t.Error("The bus should be shutting down.")
 	}
+	_, err = bus.IteratorQuery(&testQueryStruct{})
+	if err == nil || err != BusIsShuttingDownError {
+		t.Error("Expected BusIsShuttingDownError error.")
+	} else if err.Error() != "query: the bus is shutting down" {
+		t.Error("Unexpected BusIsShuttingDownError message.")
+	}
+	wg.Wait()
 }
 
 func TestBus_HandlerOrder(t *testing.T) {
