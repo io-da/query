@@ -215,7 +215,7 @@ func (bus *Bus) result(qry Query) (*Result, bool) {
 	if qry, implements := qry.(Cacheable); implements {
 		for _, adp := range bus.cacheAdapters {
 			if res := adp.Get(qry); res != nil {
-				atomic.CompareAndSwapUint32(res.cached, 0, 1)
+				res.loadedFromCache()
 				return res, true
 			}
 		}
@@ -227,12 +227,13 @@ func (bus *Bus) result(qry Query) (*Result, bool) {
 func (bus *Bus) handleCache(qry Query, res *Result) {
 	if qry, implements := qry.(Cacheable); implements && qry.CacheDuration() > 0 {
 		at := time.Now()
+		res.expires(at.Add(qry.CacheDuration()))
 		cached := false
 		for _, adp := range bus.cacheAdapters {
-			cached = cached || adp.Set(qry, res, at)
+			cached = cached || adp.Set(qry, res)
 		}
 		if cached {
-			res.cache(qry, at)
+			res.cached(at)
 		}
 	}
 }

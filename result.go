@@ -94,10 +94,15 @@ func (res *Result) increaseCapacity() {
 	res.data = data
 }
 
-func (res *Result) cache(qry Cacheable, at time.Time) {
+func (res *Result) expires(at time.Time) {
+	res.Lock()
+	res.expiresAt = at
+	res.Unlock()
+}
+
+func (res *Result) cached(at time.Time) {
 	res.Lock()
 	res.cachedAt = at
-	res.expiresAt = at.Add(qry.CacheDuration())
 	res.Unlock()
 }
 

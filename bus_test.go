@@ -100,6 +100,9 @@ func TestBus_Query(t *testing.T) {
 	if !res.IsFresh() {
 		t.Error("Result was expected to be fresh.")
 	}
+	if res.IsCached() {
+		t.Error("Result was expected to be fresh.")
+	}
 	if res.First() != "bar" {
 		t.Error("Query returned an unexpected value.")
 	}
@@ -110,6 +113,9 @@ func TestBus_Query(t *testing.T) {
 	}
 	// confirm its a cached result
 	if res.IsFresh() {
+		t.Error("Result was expected to be cached.")
+	}
+	if !res.IsCached() {
 		t.Error("Result was expected to be cached.")
 	}
 	if string(res.CacheKey()) != string(chQry.CacheKey()) {
@@ -151,7 +157,7 @@ func TestBus_Query(t *testing.T) {
 	}
 	// confirm its a fresh result
 	if !res.CachedAt().IsZero() {
-		t.Error("Result was expected to not be cached.")
+		t.Error("Result was not expected to be cached.")
 	}
 	if res.First() != "bar" {
 		t.Error("Query returned an unexpected value.")
