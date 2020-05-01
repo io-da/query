@@ -121,7 +121,7 @@ bus.ErrorHandlers(errorHandler)
 Cache adapters are any type that implements the _CacheAdapter_ interface. Cache adapters are optional (but advised) and provided to the bus using the ```bus.CacheAdapters``` function.  
 ```go
 type CacheAdapter interface {
-    Set(qry Cacheable, res *Result, at time.Time) bool
+    Set(qry Cacheable, res *Result) bool
     Get(qry Cacheable) *Result
     Expire(qry Cacheable)
     Shutdown()
