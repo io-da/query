@@ -29,10 +29,9 @@ func NewMemoryCacheAdapter() *MemoryCacheAdapter {
 }
 
 // Set stores the cache value for the given query.
-func (ad *MemoryCacheAdapter) Set(qry Cacheable, res *Result, at time.Time) bool {
+func (ad *MemoryCacheAdapter) Set(qry Cacheable, res *Result) bool {
 	ad.Lock()
 	ad.cachedResults[string(qry.CacheKey())] = res
-	ad.updateSleepUntil(at.Add(qry.CacheDuration()))
 	ad.clean()
 	ad.Unlock()
 	return true
