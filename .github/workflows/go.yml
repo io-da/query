@@ -1,0 +1,37 @@
+name: Go
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [ '1.19', '1.20', '1.21.x' ]
+        
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go ${{ matrix.go-version }}
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: Display Go version
+      run: go version
+    - name: Build
+      run: go build -v ./...
+    - name: Test
+      run: go test -race -v ./...
+    - name: Setup Code Climate test-reporter
+      run: |
+        curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+        chmod +x ./cc-test-reporter
+    - name: Run and upload Code Climate tests
+      run: |
+        ./cc-test-reporter before-build
+        GO111MODULE=off go test -race -coverprofile=c.out ./...
+        ./cc-test-reporter after-build --exit-code $?
