@@ -275,7 +275,7 @@ func main() {
 
     res3, err := bus.IteratorQuery(&Foo{})
     // range over the values, processing them while they are being populated
-    for val := range res.Iterate() {
+    for val := range res3.Iterate() {
         // do something with the val
         // "Bar"
     }
